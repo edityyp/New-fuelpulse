@@ -1,0 +1,14 @@
+{
+  "name": "fuelpulse-customer-v2",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "node --check app.js",
+    "lint": "node --check app.js",
+    "test": "node --test tests/*.test.js tests/*.test.mjs",
+    "dev": "python3 -m http.server 4173 -d ."
+  },
+  "dependencies": {}
+}
