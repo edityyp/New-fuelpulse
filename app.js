@@ -24,6 +24,41 @@ const toast = (message, type = 'info') => {
   document.body.append(node);
   setTimeout(() => node.remove(), 3600);
 };
+const icon = (name, size = 22) => {
+  const paths = {
+    home:'<path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1Z"/>',
+    scan:'<rect x="3" y="4" width="18" height="16" rx="3"/><path d="M8 4v3M16 4v3M8 17v3M16 17v3M3 9h18"/>',
+    car:'<path d="m5 16-1-3 2-6h12l2 6-1 3"/><path d="M7 7 8.5 4h7L17 7M4 13h16M7 16h.01M17 16h.01"/>',
+    gift:'<rect x="3" y="8" width="18" height="13" rx="2"/><path d="M12 8v13M3 12h18M12 8H8.5a2.5 2.5 0 1 1 0-5C11 3 12 8 12 8Zm0 0h3.5a2.5 2.5 0 1 0 0-5C13 3 12 8 12 8Z"/>',
+    user:'<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+    wallet:'<path d="M4 6h15a2 2 0 0 1 2 2v10H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"/><path d="M2 8h16a2 2 0 0 1 2 2v2h-6a2 2 0 1 0 0 4h6v2M15 14h.01"/>',
+    bell:'<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9ZM10 21h4"/>',
+    check:'<path d="m5 12 4 4L19 6"/>',
+    fuel:'<path d="M6 21V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v16M4 21h14M9 7h5M19 8l2 2v7a2 2 0 0 1-4 0v-5"/>'
+  };
+  return `<svg class="icon" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name] || paths.home}</svg>`;
+};
+const showCelebration = (title, message, detail = '') => {
+  document.querySelector('.celebration')?.remove();
+  const layer = document.createElement('div');
+  layer.className = 'celebration';
+  layer.innerHTML = `<div class="confetti" aria-hidden="true">${Array.from({length:18}, (_, i) => `<i style="--i:${i}"></i>`).join('')}</div>
+    <div class="celebration-card" role="dialog" aria-live="polite">
+      <div class="celebration-icon">${icon('check', 34)}</div>
+      <div class="eyebrow">FUELPULSE MOMENT</div>
+      <h2>${esc(title)}</h2>
+      <p>${esc(message)}</p>
+      ${detail ? `<span class="celebration-detail">${esc(detail)}</span>` : ''}
+      <button class="primary celebration-close">Continue</button>
+    </div>`;
+  document.body.append(layer);
+  requestAnimationFrame(() => layer.classList.add('show'));
+  layer.querySelector('.celebration-close').onclick = () => {
+    layer.classList.remove('show');
+    setTimeout(() => layer.remove(), 220);
+  };
+};
+
 const errorText = (error) => {
   const message = String(error?.message || error || 'Request failed.');
   const map = {
@@ -67,15 +102,15 @@ function shell(content) {
   app.innerHTML = `<div class="app">
     <header class="top">
       <div class="brand"><span class="logo">F</span><span>FuelPulse</span></div>
-      <span class="device-badge">This device</span>
+      <span class="device-badge">${icon('check', 13)} Secure</span>
     </header>
     <main>${content}</main>
     <nav class="nav" aria-label="Main navigation">
-      <button data-view="home" class="${activeView === 'home' ? 'on' : ''}">⌂<small>Home</small></button>
-      <button data-view="scan" class="${activeView === 'scan' ? 'on' : ''}">▣<small>Verify</small></button>
-      <button data-view="vehicles" class="${activeView === 'vehicles' ? 'on' : ''}">◉<small>Vehicles</small></button>
-      <button data-view="points" class="${activeView === 'points' ? 'on' : ''}">★<small>Points</small></button>
-      <button data-view="profile" class="${activeView === 'profile' ? 'on' : ''}">●<small>Profile</small></button>
+      <button data-view="home" class="${activeView === 'home' ? 'on' : ''}">${icon('home',21)}<small>Home</small></button>
+      <button data-view="scan" class="${activeView === 'scan' ? 'on' : ''}">${icon('scan',21)}<small>Scan</small></button>
+      <button data-view="vehicles" class="${activeView === 'vehicles' ? 'on' : ''}">${icon('car',21)}<small>Vehicles</small></button>
+      <button data-view="points" class="${activeView === 'points' ? 'on' : ''}">${icon('gift',21)}<small>Rewards</small></button>
+      <button data-view="profile" class="${activeView === 'profile' ? 'on' : ''}">${icon('user',21)}<small>Profile</small></button>
     </nav>
   </div>`;
   document.querySelectorAll('[data-view]').forEach((button) => {
@@ -118,12 +153,16 @@ async function load() {
 const points = () => ledger.reduce((total, item) => total + Number(item.points || 0), 0);
 
 function home() {
+  const balance = points();
+  const nextOffer = offers.filter((o) => Number(o.points_cost || 0) > balance).sort((a,b) => Number(a.points_cost||0)-Number(b.points_cost||0))[0];
+  const progress = nextOffer ? Math.min(100, Math.round((balance / Number(nextOffer.points_cost || 1)) * 100)) : 100;
   return `<section class="hero">
-    <div class="eyebrow">CUSTOMER REWARDS</div>
-    <h1>Welcome, ${esc(profile.full_name || 'there')}.</h1>
-    <p>Your points, vehicles and Parchi verification — securely connected to FuelPulse.</p>
-    <div class="balance"><span>Current points</span><strong>${points().toLocaleString('en-IN')}</strong></div>
-    <button class="primary" data-view="scan">Verify a Parchi</button>
+    <div class="hero-glow"></div>
+    <div class="hero-top"><div><div class="eyebrow">YOUR FUEL REWARDS</div><h1>Hi, ${esc((profile.full_name || 'there').split(' ')[0])} <span class="wave">✦</span></h1></div><span class="hero-badge">${icon('wallet',15)} ${balance.toLocaleString('en-IN')}</span></div>
+    <p>Every verified fuel receipt moves you closer to your next reward.</p>
+    <div class="balance"><span>Available points</span><strong>${balance.toLocaleString('en-IN')}</strong></div>
+    ${nextOffer ? `<div class="reward-progress"><div><span>Next reward</span><b>${esc(nextOffer.title)}</b></div><strong>${progress}%</strong><div class="progress-track"><i style="width:${progress}%"></i></div><small>${Math.max(0, Number(nextOffer.points_cost)-balance).toLocaleString('en-IN')} points to go</small></div>` : `<div class="reward-progress complete"><div><span>Rewards unlocked</span><b>You’re all caught up 🎉</b></div></div>`}
+    <button class="primary hero-action" data-view="scan">${icon('scan',18)} Verify a Parchi <span>→</span></button>
   </section>
   <section class="stats">
     <div><b>${vehicles.length}</b><span>Vehicles</span></div>
@@ -142,7 +181,7 @@ function home() {
 }
 
 function vehicleCard(v) {
-  return `<div class="vehicle"><span class="vehicle-icon">🚗</span><div><b>${esc(v.label || 'Vehicle')}</b><small>${esc(v.registration_number)}</small></div><span class="pill">Active</span></div>`;
+  return `<div class="vehicle"><span class="vehicle-icon">${icon('car',22)}</span><div><b>${esc(v.label || 'Vehicle')}</b><small>${esc(v.registration_number)}</small></div><span class="pill">Active</span></div>`;
 }
 function activityRow(x) {
   const n = Number(x.points);
@@ -164,7 +203,7 @@ function vehiclesView() {
   </section>`;
 }
 function pointsView() {
-  return `<section class="page-head"><div class="eyebrow">REWARDS</div><h1>${points().toLocaleString('en-IN')} points</h1><p>Your balance and history come directly from the FuelPulse database.</p></section>
+  return `<section class="page-head reward-head"><div class="page-icon">${icon('gift',26)}</div><div><div class="eyebrow">REWARDS WALLET</div><h1>${points().toLocaleString('en-IN')} points</h1><p>Every verified Parchi adds to your FuelPulse reward balance.</p></div></section>
   <section class="section"><h2>History</h2>${ledger.length ? ledger.map(activityRow).join('') : `<div class="empty"><span>No points activity yet.</span></div>`}</section>`;
 }
 function profileView() {
@@ -173,8 +212,8 @@ function profileView() {
   <section class="section"><h2>Device security</h2><div class="empty"><b>One account on this device</b><span>This customer account is bound to this browser installation. You can keep adding vehicles without creating another account.</span></div></section>`;
 }
 function scanView() {
-  return `<section class="page-head"><div class="eyebrow">PARCHI VERIFICATION</div><h1>Verify your fuel receipt</h1><p>Scan or photograph the receipt. OCR only extracts fields — the trusted station transaction decides whether points are awarded.</p></section>
-  <section class="section"><div class="card scan-card"><label class="upload"><input id="receiptFile" type="file" accept="image/jpeg,image/png,image/webp,image/heic" capture="environment"><span class="camera">▣</span><b>Take a photo or choose an image</b><small>JPEG, PNG, WebP or HEIC · max 5 MB</small></label><div id="scanFields" class="hidden"></div></div></section>`;
+  return `<section class="page-head scan-head"><div class="page-icon">${icon('scan',26)}</div><div><div class="eyebrow">PARCHI VERIFICATION</div><h1>Turn your receipt into rewards.</h1><p>Capture your fuel receipt and we’ll guide you through the verification step by step.</p></div></section>
+  <section class="section"><div class="card scan-card"><label class="upload"><input id="receiptFile" type="file" accept="image/jpeg,image/png,image/webp,image/heic" capture="environment"><span class="camera">${icon('scan',34)}</span><b>Scan your fuel receipt</b><small>Take a clear photo or choose an image · max 5 MB</small><span class="upload-cta">Open camera <span>→</span></span></label><div class="scan-trust">${icon('check',16)} Secure verification · Your receipt stays private</div><div id="scanFields" class="hidden"></div></div></section>`;
 }
 
 async function handleFile(file) {
@@ -268,6 +307,7 @@ async function verifyForm(event) {
     await load();
     activeView = 'home';
     render();
+    showCelebration(data.points ? 'Congratulations! 🎉' : 'Receipt verified!', data.points ? `You earned ${data.points} points.` : 'Your fuel receipt has been successfully verified.', data.points ? 'Your reward balance has been updated.' : 'Your verification is complete.');
   } catch (error) {
     console.error(error);
     if (uploadedPath) await supabase.storage.from('receipt-images-private').remove([uploadedPath]);
@@ -284,7 +324,7 @@ async function claimOffer(id) {
     const { data, error } = await supabase.functions.invoke(CLAIM_FUNCTION, { body: { offer_id: id } });
     if (error) throw error;
     if (data?.decision !== 'CLAIMED') throw new Error(data?.error || 'claim_failed');
-    await load(); render(); toast('Offer claimed successfully.', 'success');
+    await load(); render(); toast('Offer claimed successfully.', 'success'); showCelebration('Reward unlocked! 🎁', 'You successfully claimed this FuelPulse reward.', 'Enjoy your reward and keep fueling to earn more.');
   } catch (error) {
     toast(errorText(error), 'error');
     if (button) { button.disabled = false; button.textContent = 'Claim'; }
@@ -303,7 +343,7 @@ async function addVehicle(event) {
     label: String(form.get('label') || '').trim() || null
   });
   if (error) return toast(error.code === '23505' ? 'That vehicle is already active.' : error.message, 'error');
-  await load(); render(); toast('Vehicle added.', 'success');
+  await load(); render(); toast('Vehicle added.', 'success'); showCelebration('Vehicle added! 🚗', 'Your vehicle is now ready for fuel receipt verification.', 'You can verify receipts for this vehicle anytime.');
 }
 
 async function removeVehicle(id) {
@@ -343,6 +383,7 @@ async function createAccount(event) {
     await load();
     toast('Your FuelPulse account is ready.', 'success');
     render();
+    showCelebration('Welcome to FuelPulse! ✨', 'Your customer account is ready to earn fuel rewards.', 'Add a vehicle and verify your first receipt to get started.');
   } catch (error) {
     console.error(error);
     if (String(error?.message || '').includes('anonymous')) {
@@ -359,7 +400,7 @@ async function createAccount(event) {
 function auth() {
   app.innerHTML = `<div class="auth">
     <div class="brand big"><span class="logo">F</span><span>FuelPulse</span></div>
-    <div class="auth-copy"><div class="eyebrow">ONE DEVICE · ONE ACCOUNT</div><h1>Fuel rewards, verified.</h1><p>Create your FuelPulse customer account on this device. No OTP or password is required.</p></div>
+    <div class="auth-copy"><div class="eyebrow">WELCOME TO FUELPULSE</div><h1>Fuel rewards, made simple.</h1><p>Track your rewards, save your vehicles and turn every verified fuel receipt into progress.</p><div class="auth-benefits"><span>${icon('scan',16)} Fast receipt verification</span><span>${icon('gift',16)} Rewards that feel worth earning</span><span>${icon('check',16)} Secure by design</span></div></div>
     <div class="auth-card">
       <form id="createAccount" class="form">
         <label>Full name<input name="name" minlength="2" maxlength="80" autocomplete="name" required placeholder="Your name"></label>
